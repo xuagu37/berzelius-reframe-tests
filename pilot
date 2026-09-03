@@ -4,12 +4,36 @@ set -Eeuo pipefail
 
 repo_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 run_root="${repo_dir}/rfm-runs"
-account_file="${repo_dir}/.pilot-account"
+legacy_account_file="${repo_dir}/.pilot-account"
+env_file="${repo_dir}/.pilot.env"
 action=${1:-run}
 if (($# > 0)); then
     shift
 fi
 extra_args=("$@")
+
+# This is a local, user-controlled shell environment file. Keep it out of Git.
+if [[ -r "${env_file}" ]]; then
+    external_account_set=${RFM_ACCOUNT+x}
+    external_account=${RFM_ACCOUNT-}
+    external_bin_set=${RFM_BIN+x}
+    external_bin=${RFM_BIN-}
+    external_cuda_module_set=${RFM_CUDA_MODULE+x}
+    external_cuda_module=${RFM_CUDA_MODULE-}
+    set -a
+    # shellcheck source=/dev/null
+    source "${env_file}"
+    set +a
+    if [[ "${external_account_set}" == x ]]; then
+        export RFM_ACCOUNT=${external_account}
+    fi
+    if [[ "${external_bin_set}" == x ]]; then
+        export RFM_BIN=${external_bin}
+    fi
+    if [[ "${external_cuda_module_set}" == x ]]; then
+        export RFM_CUDA_MODULE=${external_cuda_module}
+    fi
+fi
 
 usage() {
     cat <<'EOF'
@@ -29,6 +53,8 @@ Environment overrides:
   RFM_ACCOUNT       Slurm project account
   RFM_BIN           Path to the ReFrame executable
   RFM_CUDA_MODULE   CUDA build-environment module
+
+The same variables may be stored in .pilot.env in the repository root.
 EOF
 }
 
@@ -54,10 +80,37 @@ find_reframe() {
 }
 
 save_account() {
+    local temporary_file
+
     [[ "${RFM_ACCOUNT}" =~ ^[A-Za-z0-9._-]+$ ]] ||
         fail "the account may contain only letters, digits, '.', '_' and '-'"
     umask 077
-    printf '%s\n' "${RFM_ACCOUNT}" > "${account_file}"
+    if [[ -e "${env_file}" ]]; then
+        temporary_file="${env_file}.tmp.$$"
+        awk -v account="${RFM_ACCOUNT}" '
+            BEGIN { replaced = 0 }
+            /^RFM_ACCOUNT=/ {
+                print "RFM_ACCOUNT=" account
+                replaced = 1
+                next
+            }
+            { print }
+            END {
+                if (!replaced) {
+                    print "RFM_ACCOUNT=" account
+                }
+            }
+        ' "${env_file}" > "${temporary_file}"
+        mv "${temporary_file}" "${env_file}"
+    else
+        printf '%s\n' \
+            "RFM_ACCOUNT=${RFM_ACCOUNT}" \
+            '' \
+            '# Optional overrides:' \
+            '# RFM_BIN=/absolute/path/to/reframe-hpc/bin/reframe' \
+            'RFM_CUDA_MODULE=buildenv-gcccuda/12.1.1-gcc12.3.0' \
+            > "${env_file}"
+    fi
 }
 
 configure_account() {
@@ -71,12 +124,12 @@ configure_account() {
     [[ -n "${RFM_ACCOUNT}" ]] || fail "the project account must not be empty"
     export RFM_ACCOUNT
     save_account
-    echo "Saved the account in ${account_file} (ignored by Git)."
+    echo "Saved the account in ${env_file} (ignored by Git)."
 }
 
 ensure_account() {
-    if [[ -z "${RFM_ACCOUNT:-}" && -r "${account_file}" ]]; then
-        IFS= read -r RFM_ACCOUNT < "${account_file}"
+    if [[ -z "${RFM_ACCOUNT:-}" && -r "${legacy_account_file}" ]]; then
+        IFS= read -r RFM_ACCOUNT < "${legacy_account_file}"
     fi
 
     if [[ -z "${RFM_ACCOUNT:-}" ]]; then
@@ -85,7 +138,7 @@ ensure_account() {
         export RFM_ACCOUNT
         [[ "${RFM_ACCOUNT}" =~ ^[A-Za-z0-9._-]+$ ]] ||
             fail "invalid RFM_ACCOUNT value"
-        if [[ ! -e "${account_file}" ]]; then
+        if [[ ! -e "${env_file}" ]]; then
             save_account
         fi
     fi

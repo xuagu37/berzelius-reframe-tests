@@ -32,6 +32,17 @@ The `pilot` helper wraps the longer ReFrame commands. On its first real run it
 asks for the Slurm project account and remembers it in a Git-ignored local
 file.
 
+Alternatively, keep all local settings in one environment file:
+
+```bash
+cp pilot.env.example .pilot.env
+```
+
+Edit `.pilot.env` and fill in `RFM_ACCOUNT`. The helper loads it automatically;
+there is no need to run `source .pilot.env` manually. The file is ignored by Git
+so machine- or project-specific values are not committed. Values explicitly
+exported in the current shell take precedence over values in the file.
+
 ```bash
 # Smoke check followed by one GEMM/HBM observation:
 ./pilot first-run
