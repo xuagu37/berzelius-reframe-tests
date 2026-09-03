@@ -35,10 +35,14 @@ Usage: ./berzelius-tests [action] [extra ReFrame arguments]
 
 Actions:
   run         Run one GEMM/HBM observation (default)
+  canary      Run one deterministic AI canary observation
   first-run   Run the GPU smoke check, then one GEMM/HBM observation
   smoke       Run only the GPU visibility smoke check
   list        List the concrete GEMM/HBM test case for this login system
   dry-run     Generate the GEMM/HBM job script without submitting it
+  canary-list List the concrete AI canary case for this login system
+  canary-dry-run
+              Generate the AI canary job script without submitting it
   results     List preserved reports, job output, and raw sample CSV files
   configure   Select and remember the Slurm project account
   help        Show this help
@@ -168,7 +172,8 @@ case "${action}" in
         find "${run_root}" -type f \
             \( -name 'report-*.json' \
                -o -name 'rfm_job.out' \
-               -o -name 'pilot_samples.csv' \) -print
+               -o -name 'pilot_samples.csv' \
+               -o -name 'canary_samples.csv' \) -print
         exit 0
         ;;
     configure)
@@ -185,6 +190,9 @@ case "${action}" in
     run)
         run_case GpuGemmHbmPilot yes
         ;;
+    canary)
+        run_case SmallDeterministicAiCanary yes
+        ;;
     first-run)
         run_case NvidiaSmiCheck no
         run_case GpuGemmHbmPilot yes
@@ -197,6 +205,11 @@ case "${action}" in
         reframe "${reframe_args[@]}" \
             -n GpuGemmHbmPilot "${extra_args[@]}" -lC
         ;;
+    canary-list)
+        common_args
+        reframe "${reframe_args[@]}" \
+            -n SmallDeterministicAiCanary "${extra_args[@]}" -lC
+        ;;
     dry-run)
         ensure_account
         common_args
@@ -206,6 +219,17 @@ case "${action}" in
             --prefix="${run_root}/dry-run" \
             "${extra_args[@]}" --dry-run
         find "${run_root}/dry-run/stage" -name rfm_job.sh -print
+        ;;
+    canary-dry-run)
+        ensure_account
+        common_args
+        mkdir -p "${run_root}/canary-dry-run"
+        reframe "${reframe_args[@]}" \
+            -n SmallDeterministicAiCanary \
+            --prefix="${run_root}/canary-dry-run" \
+            "${extra_args[@]}" --dry-run
+        find "${run_root}/canary-dry-run/stage" \
+            -name rfm_job.sh -print
         ;;
     *)
         usage >&2

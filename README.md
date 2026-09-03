@@ -10,7 +10,7 @@ module load Miniforge3
 mamba create -n reframe-hpc python=3.11
 mamba activate reframe-hpc
 pip install reframe-hpc
-pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+pip3 install torch==2.14.0 torchvision --index-url https://download.pytorch.org/whl/cu126
 ```
 
 If pip repeatedly warns that `pypi.ngc.nvidia.com` cannot be resolved, install
@@ -56,6 +56,9 @@ shell take precedence over values in the file.
 # Normal subsequent observations:
 ./berzelius-tests run
 
+# Run the small deterministic AI canary:
+./berzelius-tests canary
+
 # `run` is the default, so this is equivalent:
 ./berzelius-tests
 
@@ -70,6 +73,8 @@ actions are:
 ```bash
 ./berzelius-tests list
 ./berzelius-tests dry-run
+./berzelius-tests canary-list
+./berzelius-tests canary-dry-run
 ./berzelius-tests smoke
 ./berzelius-tests configure
 ./berzelius-tests help
@@ -207,3 +212,60 @@ find rfm-runs/output -type f \
 Do not submit all ten observations simultaneously. Independent allocations at
 different times are more useful for this pilot than many back-to-back samples
 inside one Slurm job.
+
+## Run the small deterministic AI canary
+
+The canary in `checks/ai_canary.py` uses the Python interpreter running
+ReFrame. PyTorch may therefore be installed directly in the `reframe-hpc`
+environment; the Slurm job invokes that interpreter by its absolute path and
+does not depend on activating Conda again.
+
+Before submitting, verify the installed software from the activated
+environment:
+
+```bash
+python -c 'import sys, torch; print(sys.executable); print(torch.__version__); print(torch.version.cuda)'
+```
+
+List and inspect the generated canary job first:
+
+```bash
+./berzelius-tests canary-list
+./berzelius-tests canary-dry-run
+```
+
+Then submit one observation:
+
+```bash
+./berzelius-tests canary
+```
+
+The workload is a single-GPU BF16 causal-transformer training loop with fixed
+inputs, eight transformer layers, AdamW, 20 warm-up steps and 100 measured
+steps. It performs forward, backward and optimizer computation while avoiding
+storage, data-loader and network effects. The test records:
+
+- median and fifth-percentile token throughput;
+- median and 95th-percentile training-step latency;
+- step-time coefficient of variation;
+- maximum allocated GPU memory;
+- initial and final loss, gradient norm and parameter checksum;
+- Python, PyTorch, CUDA, cuDNN, GPU, node and Slurm context.
+
+PyTorch deterministic algorithms and the cuBLAS deterministic workspace are
+enabled. This makes repeated runs reproducible within a fixed hardware and
+software context; floating-point results are not expected to be bitwise equal
+between A100 and H200.
+
+As with the GEMM/HBM pilot, the canary has no performance thresholds yet.
+Numerical sanity must pass, but performance is observational until a baseline
+has been collected. Raw per-step values are preserved as
+`canary_samples.csv` and are listed by:
+
+```bash
+./berzelius-tests results
+```
+
+Run one observation on A100 40 GB first. If it passes and finishes comfortably
+inside the ten-minute limit, repeat it on H200 and then collect three
+independent shake-down observations per hardware context.
