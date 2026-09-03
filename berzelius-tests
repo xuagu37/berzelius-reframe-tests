@@ -11,12 +11,10 @@ if (($# > 0)); then
 fi
 extra_args=("$@")
 
-# This is a local, user-controlled shell environment file. Keep it out of Git.
+# Load the project-specific ReFrame settings.
 if [[ -r "${env_file}" ]]; then
     external_account_set=${RFM_ACCOUNT+x}
     external_account=${RFM_ACCOUNT-}
-    external_env_set=${RFM_ENV+x}
-    external_env=${RFM_ENV-}
     external_cuda_module_set=${RFM_CUDA_MODULE+x}
     external_cuda_module=${RFM_CUDA_MODULE-}
     set -a
@@ -25,9 +23,6 @@ if [[ -r "${env_file}" ]]; then
     set +a
     if [[ "${external_account_set}" == x ]]; then
         export RFM_ACCOUNT=${external_account}
-    fi
-    if [[ "${external_env_set}" == x ]]; then
-        export RFM_ENV=${external_env}
     fi
     if [[ "${external_cuda_module_set}" == x ]]; then
         export RFM_CUDA_MODULE=${external_cuda_module}
@@ -50,7 +45,6 @@ Actions:
 
 Environment overrides:
   RFM_ACCOUNT       Slurm project account
-  RFM_ENV           Named Mamba environment containing ReFrame
   RFM_CUDA_MODULE   CUDA module; empty uses the system/default environment
 
 The same variables may be stored in berzelius.env in the repository root.
@@ -90,7 +84,6 @@ save_account() {
             "RFM_ACCOUNT=${RFM_ACCOUNT}" \
             '' \
             '# Optional overrides:' \
-            'RFM_ENV=reframe-hpc' \
             '# Leave empty to use CUDA from the system/default environment.' \
             'RFM_CUDA_MODULE=' \
             > "${env_file}"
@@ -158,7 +151,6 @@ run_case() {
     fi
     run_args+=("${extra_args[@]}" -r)
 
-    echo "Using ReFrame environment: ${RFM_ENV}"
     echo "Using account: ${RFM_ACCOUNT}"
     echo "Session files: ${session_dir}"
     reframe "${run_args[@]}"
