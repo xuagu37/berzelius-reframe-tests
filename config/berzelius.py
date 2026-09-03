@@ -3,17 +3,21 @@ import os
 
 account = os.getenv('RFM_ACCOUNT')
 account_access = [f'-A {account}'] if account else []
+cuda_module = os.getenv(
+    'RFM_CUDA_MODULE',
+    'buildenv-gcccuda/12.1.1-gcc12.3.0',
+)
 
 
-def gpu_partition(description):
+def gpu_partition(name, description, features, access=None):
     return {
-        'name': 'gpu',
+        'name': name,
         'descr': description,
         'scheduler': 'slurm',
         'launcher': 'srun',
-        'access': account_access,
-        'environs': ['default'],
-        'features': ['gpu'],
+        'access': account_access + (access or []),
+        'environs': ['default', 'cuda'],
+        'features': ['gpu', *features],
         'max_jobs': 1,
         'resources': [
             {
@@ -31,20 +35,46 @@ site_configuration = {
             'descr': 'Berzelius Ampere (NVIDIA A100)',
             'hostnames': [r'berzelius[0-9]+'],
             'modules_system': 'lmod',
-            'partitions': [gpu_partition('A100 GPU compute nodes')],
+            'partitions': [
+                gpu_partition(
+                    'a100_40',
+                    'A100 40 GB thin nodes',
+                    ['a100', 'a100_40', 'thin', 'pilot_gpu'],
+                    ['-C thin'],
+                ),
+                gpu_partition(
+                    'a100_80',
+                    'A100 80 GB fat nodes',
+                    ['a100', 'a100_80', 'fat'],
+                    ['-C fat'],
+                ),
+            ],
         },
         {
             'name': 'berzelius-hopper',
             'descr': 'Berzelius Hopper (NVIDIA H200)',
             'hostnames': [r'berzelius-hopper[0-9]+'],
             'modules_system': 'lmod',
-            'partitions': [gpu_partition('H200 GPU compute nodes')],
+            'partitions': [
+                gpu_partition(
+                    'h200',
+                    'H200 141 GB GPU compute nodes',
+                    ['h200', 'pilot_gpu'],
+                ),
+            ],
         },
     ],
     'environments': [
         {
             'name': 'default',
+        },
+        {
+            'name': 'cuda',
+            'modules': [cuda_module],
+            'cc': 'gcc',
+            'cxx': 'g++',
+            'ftn': 'gfortran',
+            'nvcc': 'nvcc',
         }
     ],
 }
-

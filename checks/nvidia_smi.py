@@ -6,8 +6,8 @@ from reframe.core.builtins import sanity_function
 @rfm.simple_test
 class NvidiaSmiCheck(rfm.RunOnlyRegressionTest):
     descr = 'Verify that a scheduled NVIDIA GPU is visible'
-    valid_systems = ['+gpu']
-    valid_prog_environs = ['*']
+    valid_systems = ['+pilot_gpu']
+    valid_prog_environs = ['default']
 
     executable = 'nvidia-smi'
     executable_opts = [
