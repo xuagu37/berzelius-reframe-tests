@@ -32,11 +32,15 @@ The `berzelius-tests` runner wraps the longer ReFrame commands. On its first
 real run it asks for the Slurm project account and remembers it in
 `berzelius.env`.
 
+```bash
+module load Miniforge3
+mamba activate reframe-hpc
+```
+
 Project settings are kept in the visible `berzelius.env` file. For example:
 
 ```bash
 RFM_ACCOUNT=nsc
-RFM_ENV=reframe-hpc
 RFM_CUDA_MODULE=
 ```
 
@@ -69,10 +73,6 @@ actions are:
 ./berzelius-tests configure
 ./berzelius-tests help
 ```
-
-With `RFM_ENV=reframe-hpc`, the runner checks Lmod's `LOADEDMODULES` state and
-loads `Miniforge3` only when needed. It then activates the named environment,
-unless it is already active, and calls `reframe` directly.
 
 ## Configure the Slurm account
 

@@ -62,15 +62,6 @@ fail() {
     exit 1
 }
 
-find_reframe() {
-    if [[ ":${LOADEDMODULES:-}:" != *":Miniforge3/"* ]]; then
-        ml Miniforge3
-    fi
-    if [[ "${CONDA_DEFAULT_ENV:-}" != "${RFM_ENV}" ]]; then
-        mamba activate "${RFM_ENV}"
-    fi
-}
-
 save_account() {
     local temporary_file
 
@@ -197,8 +188,6 @@ case "${action}" in
         exit 0
         ;;
 esac
-
-find_reframe
 
 case "${action}" in
     run)
