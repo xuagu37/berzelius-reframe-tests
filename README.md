@@ -70,10 +70,8 @@ actions are:
 ./berzelius-tests help
 ```
 
-With `RFM_ENV=reframe-hpc`, the runner executes ReFrame as
-`mamba run -n reframe-hpc reframe`. Make sure the Miniforge3 module is loaded
-so the `mamba` command is available. Leave `RFM_ENV=` empty to use `reframe`
-from the currently active shell environment instead.
+With `RFM_ENV=reframe-hpc`, the runner loads `Miniforge3`, activates the named
+Mamba environment and then calls `reframe` directly.
 
 ## Configure the Slurm account
 

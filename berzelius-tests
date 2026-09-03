@@ -63,19 +63,8 @@ fail() {
 }
 
 find_reframe() {
-    if [[ -n "${RFM_ENV:-}" ]]; then
-        [[ "${RFM_ENV}" =~ ^[A-Za-z0-9._-]+$ ]] ||
-            fail "invalid RFM_ENV name"
-        command -v mamba >/dev/null 2>&1 ||
-            fail "mamba was not found; load Miniforge3 or leave RFM_ENV empty and activate ReFrame"
-        reframe_cmd=(mamba run -n "${RFM_ENV}" reframe)
-        reframe_description="Mamba environment ${RFM_ENV}"
-    elif command -v reframe >/dev/null 2>&1; then
-        reframe_cmd=("$(command -v reframe)")
-        reframe_description=${reframe_cmd[0]}
-    else
-        fail "ReFrame was not found; set RFM_ENV or activate an environment containing ReFrame"
-    fi
+    module load Miniforge3
+    mamba activate "${RFM_ENV}"
 }
 
 save_account() {
@@ -174,10 +163,10 @@ run_case() {
     fi
     run_args+=("${extra_args[@]}" -r)
 
-    echo "Using ReFrame: ${reframe_description}"
+    echo "Using ReFrame environment: ${RFM_ENV}"
     echo "Using account: ${RFM_ACCOUNT}"
     echo "Session files: ${session_dir}"
-    "${reframe_cmd[@]}" "${run_args[@]}"
+    reframe "${run_args[@]}"
 }
 
 cd "${repo_dir}"
@@ -220,14 +209,14 @@ case "${action}" in
         ;;
     list)
         common_args
-        "${reframe_cmd[@]}" "${reframe_args[@]}" \
+        reframe "${reframe_args[@]}" \
             -n GpuGemmHbmPilot "${extra_args[@]}" -lC
         ;;
     dry-run)
         ensure_account
         common_args
         mkdir -p "${run_root}/dry-run"
-        "${reframe_cmd[@]}" "${reframe_args[@]}" \
+        reframe "${reframe_args[@]}" \
             -n GpuGemmHbmPilot \
             --prefix="${run_root}/dry-run" \
             "${extra_args[@]}" --dry-run
