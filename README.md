@@ -26,6 +26,42 @@ Verify the installation:
 reframe -V
 ```
 
+## Quick start
+
+The `pilot` helper wraps the longer ReFrame commands. On its first real run it
+asks for the Slurm project account and remembers it in a Git-ignored local
+file.
+
+```bash
+# Smoke check followed by one GEMM/HBM observation:
+./pilot first-run
+
+# Normal subsequent observations:
+./pilot run
+
+# `run` is the default, so this is equivalent:
+./pilot
+
+# Find all preserved reports and raw samples:
+./pilot results
+```
+
+Each observation gets a timestamped directory under `rfm-runs/sessions`, so a
+later run does not overwrite an earlier `pilot_samples.csv`. Other available
+actions are:
+
+```bash
+./pilot list
+./pilot dry-run
+./pilot smoke
+./pilot configure
+./pilot help
+```
+
+The helper normally finds `reframe` from the active environment or from
+`$HOME/.conda/envs/reframe-hpc`. Set `RFM_BIN=/path/to/reframe` if it was
+installed somewhere else.
+
 ## Configure the Slurm account
 
 Use `projinfo` to find the project account, then export it before running

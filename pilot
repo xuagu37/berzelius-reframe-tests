@@ -1,0 +1,191 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+repo_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+run_root="${repo_dir}/rfm-runs"
+account_file="${repo_dir}/.pilot-account"
+action=${1:-run}
+if (($# > 0)); then
+    shift
+fi
+extra_args=("$@")
+
+usage() {
+    cat <<'EOF'
+Usage: ./pilot [action] [extra ReFrame arguments]
+
+Actions:
+  run         Run one GEMM/HBM observation (default)
+  first-run   Run the GPU smoke check, then one GEMM/HBM observation
+  smoke       Run only the GPU visibility smoke check
+  list        List the concrete GEMM/HBM test case for this login system
+  dry-run     Generate the GEMM/HBM job script without submitting it
+  results     List preserved reports, job output, and raw sample CSV files
+  configure   Select and remember the Slurm project account
+  help        Show this help
+
+Environment overrides:
+  RFM_ACCOUNT       Slurm project account
+  RFM_BIN           Path to the ReFrame executable
+  RFM_CUDA_MODULE   CUDA build-environment module
+EOF
+}
+
+fail() {
+    echo "pilot: $*" >&2
+    exit 1
+}
+
+find_reframe() {
+    if [[ -n "${RFM_BIN:-}" ]]; then
+        reframe_bin=${RFM_BIN}
+    elif command -v reframe >/dev/null 2>&1; then
+        reframe_bin=$(command -v reframe)
+    elif [[ -x "${HOME}/.conda/envs/reframe-hpc/bin/reframe" ]]; then
+        reframe_bin="${HOME}/.conda/envs/reframe-hpc/bin/reframe"
+    elif [[ -x "$(dirname -- "${repo_dir}")/.conda/envs/reframe-hpc/bin/reframe" ]]; then
+        reframe_bin="$(dirname -- "${repo_dir}")/.conda/envs/reframe-hpc/bin/reframe"
+    else
+        fail "ReFrame was not found. Activate the reframe-hpc environment or set RFM_BIN."
+    fi
+
+    [[ -x "${reframe_bin}" ]] || fail "not executable: ${reframe_bin}"
+}
+
+save_account() {
+    [[ "${RFM_ACCOUNT}" =~ ^[A-Za-z0-9._-]+$ ]] ||
+        fail "the account may contain only letters, digits, '.', '_' and '-'"
+    umask 077
+    printf '%s\n' "${RFM_ACCOUNT}" > "${account_file}"
+}
+
+configure_account() {
+    if command -v projinfo >/dev/null 2>&1; then
+        projinfo
+        echo
+    fi
+
+    [[ -t 0 ]] || fail "set RFM_ACCOUNT when running non-interactively"
+    read -r -p "Slurm project account: " RFM_ACCOUNT
+    [[ -n "${RFM_ACCOUNT}" ]] || fail "the project account must not be empty"
+    export RFM_ACCOUNT
+    save_account
+    echo "Saved the account in ${account_file} (ignored by Git)."
+}
+
+ensure_account() {
+    if [[ -z "${RFM_ACCOUNT:-}" && -r "${account_file}" ]]; then
+        IFS= read -r RFM_ACCOUNT < "${account_file}"
+    fi
+
+    if [[ -z "${RFM_ACCOUNT:-}" ]]; then
+        configure_account
+    else
+        export RFM_ACCOUNT
+        [[ "${RFM_ACCOUNT}" =~ ^[A-Za-z0-9._-]+$ ]] ||
+            fail "invalid RFM_ACCOUNT value"
+        if [[ ! -e "${account_file}" ]]; then
+            save_account
+        fi
+    fi
+}
+
+common_args() {
+    reframe_args=(
+        -C "${repo_dir}/config/berzelius.py"
+        -c "${repo_dir}/checks"
+        -R
+    )
+}
+
+run_case() {
+    local check_name=$1
+    local show_performance=$2
+    local session_name
+    local session_dir
+
+    command -v sbatch >/dev/null 2>&1 ||
+        fail "sbatch was not found; run this command on a Berzelius login node"
+    ensure_account
+    common_args
+
+    session_name=$(date '+%Y%m%dT%H%M%S')-$$-${check_name}
+    session_dir="${run_root}/sessions/${session_name}"
+    mkdir -p "${session_dir}" "${run_root}/reports"
+
+    run_args=(
+        "${reframe_args[@]}"
+        -n "${check_name}"
+        --prefix="${session_dir}"
+        --report-file="${run_root}/reports/report-{sessionid}.json"
+    )
+    if [[ "${show_performance}" == yes ]]; then
+        run_args+=(--performance-report)
+    fi
+    run_args+=("${extra_args[@]}" -r)
+
+    echo "Using ReFrame: ${reframe_bin}"
+    echo "Using account: ${RFM_ACCOUNT}"
+    echo "Session files: ${session_dir}"
+    "${reframe_bin}" "${run_args[@]}"
+}
+
+cd "${repo_dir}"
+
+# These actions do not need a ReFrame executable.
+case "${action}" in
+    results)
+        if [[ ! -d "${run_root}" ]]; then
+            echo "No pilot results exist yet."
+            exit 0
+        fi
+        find "${run_root}" -type f \
+            \( -name 'report-*.json' \
+               -o -name 'rfm_job.out' \
+               -o -name 'pilot_samples.csv' \) -print
+        exit 0
+        ;;
+    configure)
+        configure_account
+        exit 0
+        ;;
+    help|-h|--help)
+        usage
+        exit 0
+        ;;
+esac
+
+find_reframe
+
+case "${action}" in
+    run)
+        run_case GpuGemmHbmPilot yes
+        ;;
+    first-run)
+        run_case NvidiaSmiCheck no
+        run_case GpuGemmHbmPilot yes
+        ;;
+    smoke)
+        run_case NvidiaSmiCheck no
+        ;;
+    list)
+        common_args
+        "${reframe_bin}" "${reframe_args[@]}" \
+            -n GpuGemmHbmPilot "${extra_args[@]}" -lC
+        ;;
+    dry-run)
+        ensure_account
+        common_args
+        mkdir -p "${run_root}/dry-run"
+        "${reframe_bin}" "${reframe_args[@]}" \
+            -n GpuGemmHbmPilot \
+            --prefix="${run_root}/dry-run" \
+            "${extra_args[@]}" --dry-run
+        find "${run_root}/dry-run/stage" -name rfm_job.sh -print
+        ;;
+    *)
+        usage >&2
+        fail "unknown action: ${action}"
+        ;;
+esac

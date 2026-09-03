@@ -6,3 +6,6 @@ rfm-runs/
 stage/
 output/
 perflogs/
+
+# Local convenience-runner configuration
+.pilot-account
