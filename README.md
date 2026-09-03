@@ -70,9 +70,9 @@ actions are:
 ./berzelius-tests help
 ```
 
-With `RFM_ENV=reframe-hpc`, the runner loads `Miniforge3` only when `mamba` is
-not already available, activates the named environment only when needed, and
-then calls `reframe` directly.
+With `RFM_ENV=reframe-hpc`, the runner uses `ml is-loaded Miniforge3` to check
+the module state and loads `Miniforge3` only when needed. It then activates the
+named environment, unless it is already active, and calls `reframe` directly.
 
 ## Configure the Slurm account
 
