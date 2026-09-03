@@ -10,6 +10,7 @@ module load Miniforge3
 mamba create -n reframe-hpc python=3.11
 mamba activate reframe-hpc
 pip install reframe-hpc
+pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu126
 ```
 
 If pip repeatedly warns that `pypi.ngc.nvidia.com` cannot be resolved, install
