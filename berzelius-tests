@@ -63,8 +63,12 @@ fail() {
 }
 
 find_reframe() {
-    module load Miniforge3
-    mamba activate "${RFM_ENV}"
+    if ! command -v mamba >/dev/null 2>&1; then
+        module load Miniforge3
+    fi
+    if [[ "${CONDA_DEFAULT_ENV:-}" != "${RFM_ENV}" ]]; then
+        mamba activate "${RFM_ENV}"
+    fi
 }
 
 save_account() {
