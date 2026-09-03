@@ -4,8 +4,7 @@ set -Eeuo pipefail
 
 repo_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 run_root="${repo_dir}/rfm-runs"
-legacy_account_file="${repo_dir}/.pilot-account"
-env_file="${repo_dir}/.pilot.env"
+env_file="${repo_dir}/berzelius.env"
 action=${1:-run}
 if (($# > 0)); then
     shift
@@ -37,7 +36,7 @@ fi
 
 usage() {
     cat <<'EOF'
-Usage: ./pilot [action] [extra ReFrame arguments]
+Usage: ./berzelius-tests [action] [extra ReFrame arguments]
 
 Actions:
   run         Run one GEMM/HBM observation (default)
@@ -52,14 +51,14 @@ Actions:
 Environment overrides:
   RFM_ACCOUNT       Slurm project account
   RFM_BIN           Path to the ReFrame executable
-  RFM_CUDA_MODULE   CUDA build-environment module
+  RFM_CUDA_MODULE   CUDA module; empty uses the system/default environment
 
-The same variables may be stored in .pilot.env in the repository root.
+The same variables may be stored in berzelius.env in the repository root.
 EOF
 }
 
 fail() {
-    echo "pilot: $*" >&2
+    echo "berzelius-tests: $*" >&2
     exit 1
 }
 
@@ -108,7 +107,8 @@ save_account() {
             '' \
             '# Optional overrides:' \
             '# RFM_BIN=/absolute/path/to/reframe-hpc/bin/reframe' \
-            'RFM_CUDA_MODULE=buildenv-gcccuda/12.1.1-gcc12.3.0' \
+            '# Leave empty to use CUDA from the system/default environment.' \
+            'RFM_CUDA_MODULE=' \
             > "${env_file}"
     fi
 }
@@ -128,10 +128,6 @@ configure_account() {
 }
 
 ensure_account() {
-    if [[ -z "${RFM_ACCOUNT:-}" && -r "${legacy_account_file}" ]]; then
-        IFS= read -r RFM_ACCOUNT < "${legacy_account_file}"
-    fi
-
     if [[ -z "${RFM_ACCOUNT:-}" ]]; then
         configure_account
     else
@@ -190,7 +186,7 @@ cd "${repo_dir}"
 case "${action}" in
     results)
         if [[ ! -d "${run_root}" ]]; then
-            echo "No pilot results exist yet."
+            echo "No test results exist yet."
             exit 0
         fi
         find "${run_root}" -type f \

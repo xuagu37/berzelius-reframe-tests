@@ -8,5 +8,4 @@ output/
 perflogs/
 
 # Local convenience-runner configuration
-.pilot-account
-.pilot.env
+berzelius.env

@@ -3,10 +3,7 @@ import os
 
 account = os.getenv('RFM_ACCOUNT')
 account_access = [f'-A {account}'] if account else []
-cuda_module = os.getenv(
-    'RFM_CUDA_MODULE',
-    'buildenv-gcccuda/12.1.1-gcc12.3.0',
-)
+cuda_module = os.getenv('RFM_CUDA_MODULE', '').strip()
 
 
 def gpu_partition(name, description, features, access=None):
@@ -70,7 +67,7 @@ site_configuration = {
         },
         {
             'name': 'cuda',
-            'modules': [cuda_module],
+            'modules': [cuda_module] if cuda_module else [],
             'cc': 'gcc',
             'cxx': 'g++',
             'ftn': 'gfortran',

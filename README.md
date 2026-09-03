@@ -28,33 +28,34 @@ reframe -V
 
 ## Quick start
 
-The `pilot` helper wraps the longer ReFrame commands. On its first real run it
-asks for the Slurm project account and remembers it in a Git-ignored local
-file.
+The `berzelius-tests` runner wraps the longer ReFrame commands. On its first
+real run it asks for the Slurm project account and remembers it in a
+Git-ignored local file.
 
 Alternatively, keep all local settings in one environment file:
 
 ```bash
-cp pilot.env.example .pilot.env
+cp berzelius.env.example berzelius.env
 ```
 
-Edit `.pilot.env` and fill in `RFM_ACCOUNT`. The helper loads it automatically;
-there is no need to run `source .pilot.env` manually. The file is ignored by Git
-so machine- or project-specific values are not committed. Values explicitly
-exported in the current shell take precedence over values in the file.
+Edit `berzelius.env` and fill in `RFM_ACCOUNT`. The runner loads it
+automatically; there is no need to run `source berzelius.env` manually. The
+file is ignored by Git so machine- or project-specific values are not
+committed. Values explicitly exported in the current shell take precedence
+over values in the file.
 
 ```bash
 # Smoke check followed by one GEMM/HBM observation:
-./pilot first-run
+./berzelius-tests first-run
 
 # Normal subsequent observations:
-./pilot run
+./berzelius-tests run
 
 # `run` is the default, so this is equivalent:
-./pilot
+./berzelius-tests
 
 # Find all preserved reports and raw samples:
-./pilot results
+./berzelius-tests results
 ```
 
 Each observation gets a timestamped directory under `rfm-runs/sessions`, so a
@@ -62,30 +63,27 @@ later run does not overwrite an earlier `pilot_samples.csv`. Other available
 actions are:
 
 ```bash
-./pilot list
-./pilot dry-run
-./pilot smoke
-./pilot configure
-./pilot help
+./berzelius-tests list
+./berzelius-tests dry-run
+./berzelius-tests smoke
+./berzelius-tests configure
+./berzelius-tests help
 ```
 
-The helper normally finds `reframe` from the active environment or from
+The runner normally finds `reframe` from the active environment or from
 `$HOME/.conda/envs/reframe-hpc`. Set `RFM_BIN=/path/to/reframe` if it was
 installed somewhere else.
 
 ## Configure the Slurm account
 
-Use `projinfo` to find the project account, then export it before running
-ReFrame:
+Use the runner to find and save the project account:
 
 ```bash
-projinfo
-export RFM_ACCOUNT=<project-account>
+./berzelius-tests configure
 ```
 
-If `RFM_ACCOUNT` is not set, the configuration does not emit an `-A` option.
-This may work for users with a default account, but setting it explicitly is
-recommended.
+The account is stored in `berzelius.env`. You can also export `RFM_ACCOUNT`
+before running the tests; an exported value takes precedence over the file.
 
 ## Hardware contexts
 
@@ -142,19 +140,21 @@ program with the NSC CUDA build environment and measures:
 - the fifth percentile and coefficient of variation for both metrics;
 - numerical correctness for both kernels.
 
-The default CUDA module is
-`buildenv-gcccuda/12.1.1-gcc12.3.0`. Confirm that it is available:
+By default, the runner does not load a CUDA module and uses CUDA from the
+system or current job environment. To load a specific build environment,
+confirm that it is available:
 
 ```bash
 module avail buildenv-gcccuda
 ```
 
-If a different installed module must be used, select it without editing the
-configuration:
+Then set it in `berzelius.env` without editing the ReFrame configuration:
 
 ```bash
-export RFM_CUDA_MODULE=<installed-buildenv-gcccuda-module>
+RFM_CUDA_MODULE=<installed-buildenv-gcccuda-module>
 ```
+
+Leave `RFM_CUDA_MODULE=` empty to continue using the system/default CUDA.
 
 List the pilot cases:
 
