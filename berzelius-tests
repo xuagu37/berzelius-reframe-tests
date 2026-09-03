@@ -63,7 +63,7 @@ fail() {
 }
 
 find_reframe() {
-    if ! ml is-loaded Miniforge3; then
+    if [[ ":${LOADEDMODULES:-}:" != *":Miniforge3/"* ]]; then
         ml Miniforge3
     fi
     if [[ "${CONDA_DEFAULT_ENV:-}" != "${RFM_ENV}" ]]; then
