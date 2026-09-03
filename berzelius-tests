@@ -15,8 +15,8 @@ extra_args=("$@")
 if [[ -r "${env_file}" ]]; then
     external_account_set=${RFM_ACCOUNT+x}
     external_account=${RFM_ACCOUNT-}
-    external_bin_set=${RFM_BIN+x}
-    external_bin=${RFM_BIN-}
+    external_env_set=${RFM_ENV+x}
+    external_env=${RFM_ENV-}
     external_cuda_module_set=${RFM_CUDA_MODULE+x}
     external_cuda_module=${RFM_CUDA_MODULE-}
     set -a
@@ -26,8 +26,8 @@ if [[ -r "${env_file}" ]]; then
     if [[ "${external_account_set}" == x ]]; then
         export RFM_ACCOUNT=${external_account}
     fi
-    if [[ "${external_bin_set}" == x ]]; then
-        export RFM_BIN=${external_bin}
+    if [[ "${external_env_set}" == x ]]; then
+        export RFM_ENV=${external_env}
     fi
     if [[ "${external_cuda_module_set}" == x ]]; then
         export RFM_CUDA_MODULE=${external_cuda_module}
@@ -50,7 +50,7 @@ Actions:
 
 Environment overrides:
   RFM_ACCOUNT       Slurm project account
-  RFM_BIN           Path to the ReFrame executable
+  RFM_ENV           Named Mamba environment containing ReFrame
   RFM_CUDA_MODULE   CUDA module; empty uses the system/default environment
 
 The same variables may be stored in berzelius.env in the repository root.
@@ -63,19 +63,19 @@ fail() {
 }
 
 find_reframe() {
-    if [[ -n "${RFM_BIN:-}" ]]; then
-        reframe_bin=${RFM_BIN}
+    if [[ -n "${RFM_ENV:-}" ]]; then
+        [[ "${RFM_ENV}" =~ ^[A-Za-z0-9._-]+$ ]] ||
+            fail "invalid RFM_ENV name"
+        command -v mamba >/dev/null 2>&1 ||
+            fail "mamba was not found; load Miniforge3 or leave RFM_ENV empty and activate ReFrame"
+        reframe_cmd=(mamba run -n "${RFM_ENV}" reframe)
+        reframe_description="Mamba environment ${RFM_ENV}"
     elif command -v reframe >/dev/null 2>&1; then
-        reframe_bin=$(command -v reframe)
-    elif [[ -x "${HOME}/.conda/envs/reframe-hpc/bin/reframe" ]]; then
-        reframe_bin="${HOME}/.conda/envs/reframe-hpc/bin/reframe"
-    elif [[ -x "$(dirname -- "${repo_dir}")/.conda/envs/reframe-hpc/bin/reframe" ]]; then
-        reframe_bin="$(dirname -- "${repo_dir}")/.conda/envs/reframe-hpc/bin/reframe"
+        reframe_cmd=("$(command -v reframe)")
+        reframe_description=${reframe_cmd[0]}
     else
-        fail "ReFrame was not found. Activate the reframe-hpc environment or set RFM_BIN."
+        fail "ReFrame was not found; set RFM_ENV or activate an environment containing ReFrame"
     fi
-
-    [[ -x "${reframe_bin}" ]] || fail "not executable: ${reframe_bin}"
 }
 
 save_account() {
@@ -106,7 +106,7 @@ save_account() {
             "RFM_ACCOUNT=${RFM_ACCOUNT}" \
             '' \
             '# Optional overrides:' \
-            '# RFM_BIN=/absolute/path/to/reframe-hpc/bin/reframe' \
+            'RFM_ENV=reframe-hpc' \
             '# Leave empty to use CUDA from the system/default environment.' \
             'RFM_CUDA_MODULE=' \
             > "${env_file}"
@@ -124,7 +124,7 @@ configure_account() {
     [[ -n "${RFM_ACCOUNT}" ]] || fail "the project account must not be empty"
     export RFM_ACCOUNT
     save_account
-    echo "Saved the account in ${env_file} (ignored by Git)."
+    echo "Saved the account in ${env_file}."
 }
 
 ensure_account() {
@@ -174,10 +174,10 @@ run_case() {
     fi
     run_args+=("${extra_args[@]}" -r)
 
-    echo "Using ReFrame: ${reframe_bin}"
+    echo "Using ReFrame: ${reframe_description}"
     echo "Using account: ${RFM_ACCOUNT}"
     echo "Session files: ${session_dir}"
-    "${reframe_bin}" "${run_args[@]}"
+    "${reframe_cmd[@]}" "${run_args[@]}"
 }
 
 cd "${repo_dir}"
@@ -220,14 +220,14 @@ case "${action}" in
         ;;
     list)
         common_args
-        "${reframe_bin}" "${reframe_args[@]}" \
+        "${reframe_cmd[@]}" "${reframe_args[@]}" \
             -n GpuGemmHbmPilot "${extra_args[@]}" -lC
         ;;
     dry-run)
         ensure_account
         common_args
         mkdir -p "${run_root}/dry-run"
-        "${reframe_bin}" "${reframe_args[@]}" \
+        "${reframe_cmd[@]}" "${reframe_args[@]}" \
             -n GpuGemmHbmPilot \
             --prefix="${run_root}/dry-run" \
             "${extra_args[@]}" --dry-run

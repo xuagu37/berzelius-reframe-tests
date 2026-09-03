@@ -6,6 +6,3 @@ rfm-runs/
 stage/
 output/
 perflogs/
-
-# Local convenience-runner configuration
-berzelius.env

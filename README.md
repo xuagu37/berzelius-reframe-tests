@@ -29,20 +29,20 @@ reframe -V
 ## Quick start
 
 The `berzelius-tests` runner wraps the longer ReFrame commands. On its first
-real run it asks for the Slurm project account and remembers it in a
-Git-ignored local file.
+real run it asks for the Slurm project account and remembers it in
+`berzelius.env`.
 
-Alternatively, keep all local settings in one environment file:
+Project settings are kept in the visible `berzelius.env` file. For example:
 
 ```bash
-cp berzelius.env.example berzelius.env
+RFM_ACCOUNT=nsc
+RFM_ENV=reframe-hpc
+RFM_CUDA_MODULE=
 ```
 
-Edit `berzelius.env` and fill in `RFM_ACCOUNT`. The runner loads it
-automatically; there is no need to run `source berzelius.env` manually. The
-file is ignored by Git so machine- or project-specific values are not
-committed. Values explicitly exported in the current shell take precedence
-over values in the file.
+The runner loads this file automatically; there is no need to run
+`source berzelius.env` manually. Values explicitly exported in the current
+shell take precedence over values in the file.
 
 ```bash
 # Smoke check followed by one GEMM/HBM observation:
@@ -70,9 +70,10 @@ actions are:
 ./berzelius-tests help
 ```
 
-The runner normally finds `reframe` from the active environment or from
-`$HOME/.conda/envs/reframe-hpc`. Set `RFM_BIN=/path/to/reframe` if it was
-installed somewhere else.
+With `RFM_ENV=reframe-hpc`, the runner executes ReFrame as
+`mamba run -n reframe-hpc reframe`. Make sure the Miniforge3 module is loaded
+so the `mamba` command is available. Leave `RFM_ENV=` empty to use `reframe`
+from the currently active shell environment instead.
 
 ## Configure the Slurm account
 
